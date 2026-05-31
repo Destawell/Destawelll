@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>Destawell — Mobile Security Research</title>
+  <meta name="description" content="Destawell is an independent security research lab focused on mobile pentesting infrastructure for Termux and Kali NetHunter, and LLM safety red teaming.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #ffffff;
+      --bg-alt: #f8fafc;
+      --bg-muted: #f1f5f9;
+      --text: #0f172a;
+      --muted: #475569;
+      --muted-light: #64748b;
+      --border: #e2e8f0;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --success: #059669;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+      --shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
+      --max: 1120px;
+      --nav-h: 68px;
+      --gutter: 24px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; min-width: 0; }
+    html { scroll-behavior: smooth; overflow-x: hidden; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      font-size: clamp(14px, 0.9vw + 11px, 18px);
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      max-width: 100vw;
+      text-rendering: optimizeLegibility;
+    }
+    code, .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 0.9em;
+      background: var(--bg-muted);
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      word-break: break-word;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    img { max-width: 100%; height: auto; display: block; }
+
+    .container { max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); width: 100%; }
+
+    /* NAV */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: saturate(180%) blur(10px);
+      -webkit-backdrop-filter: saturate(180%) blur(10px);
+      border-bottom: 1px solid var(--border);
+      height: var(--nav-h);
+    }
+    .nav-inner {
+      max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter);
+      height: var(--nav-h); display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand {
+      font-weight: 700; font-size: clamp(18px, 1.4vw + 14px, 22px); letter-spacing: 0.5px; cursor: pointer;
+      color: var(--text); white-space: nowrap;
+    }
+    .nav-links { display: flex; gap: clamp(18px, 2vw, 28px); align-items: center; }
+    .nav-links a {
+      color: var(--muted); font-weight: 500; font-size: clamp(14px, 0.85vw + 11px, 15px); cursor: pointer;
+      padding: 8px 0; position: relative; text-decoration: none;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); }
+    .nav-links a.active::after {
+      content: ''; position: absolute; bottom: -20px; left: 0; right: 0;
+      height: 2px; background: var(--accent);
+    }
+    .nav-cta { display: flex; align-items: center; gap: 16px; }
+    .nav-toggle { display: none; background: none; border: none; padding: 8px; cursor: pointer; color: var(--text); border-radius: 8px; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 18px; border-radius: 10px; font-weight: 500; font-size: clamp(14px, 0.85vw + 11px, 15px);
+      border: 1px solid transparent; cursor: pointer; transition: all 0.2s;
+      text-decoration: none; white-space: nowrap; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+    .btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: var(--shadow); text-decoration: none; }
+    .btn-outline { background: white; color: var(--text); border-color: var(--border); }
+    .btn-outline:hover { border-color: var(--accent); color: var(--accent); background: #eff6ff; text-decoration: none; }
+    .btn-sm { padding: 8px 14px; font-size: clamp(13px, 0.8vw + 10px, 14px); }
+
+    .page { display: none; padding-top: var(--nav-h); min-height: calc(100vh - 120px); }
+    .page.active { display: block; animation: fade 0.3s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(4px);} to {opacity:1; transform: translateY(0);} }
+
+    /* HOME */
+    .hero { padding: clamp(48px, 8vw, 80px) 0 clamp(40px, 6vw, 60px); display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(32px, 5vw, 64px); align-items: center; }
+    .eyebrow { display: inline-block; font-size: clamp(11px, 0.7vw + 8px, 13px); font-weight: 600; color: var(--accent); background: #eff6ff; padding: 4px 10px; border-radius: 20px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+    h1 { font-size: clamp(28px, 5vw, 56px); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 16px; }
+    .lead { font-size: clamp(15px, 1.2vw + 11px, 18px); color: var(--muted); max-width: 60ch; }
+    .cta-row { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+    
+    .hero-card {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: clamp(20px, 2.5vw, 28px); box-shadow: var(--shadow-lg);
+    }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .stat-grid > div { padding: 12px 0; border-bottom: 1px solid var(--bg-muted); }
+    .stat-grid > div:nth-last-child(-n+2) { border-bottom: none; }
+    .stat-grid span { display: block; font-size: clamp(11px, 0.7vw, 12px); color: var(--muted-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .stat-grid strong { font-size: clamp(16px, 1.1vw + 12px, 18px); font-weight: 600; }
+
+    .metrics { padding: 20px 0 60px; display: grid; grid-template-columns: repeat(4,1fr); gap: clamp(12px, 1.5vw, 16px); }
+    .metric { background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius); padding: clamp(16px, 2vw, 20px); text-align: center; }
+    .metric strong { display: block; font-size: clamp(22px, 2.2vw + 14px, 32px); font-weight: 700; color: var(--text); line-height: 1.1; }
+    .metric span { font-size: clamp(13px, 0.8vw + 10px, 14px); color: var(--muted); }
+
+    .pillars { background: var(--bg-alt); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: clamp(56px, 7vw, 80px) 0; }
+    .section-head { text-align: center; max-width: 680px; margin: 0 auto clamp(32px, 4vw, 48px); padding: 0 8px; }
+    .section-head h2 { font-size: clamp(22px, 3.5vw, 36px); font-weight: 700; letter-spacing: -0.01em; margin-bottom: 8px; }
+    .section-head p { color: var(--muted); font-size: clamp(15px, 1vw + 11px, 17px); }
+    .grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: clamp(16px, 2vw, 24px); container-type: inline-size; }
+    .pillar {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: clamp(22px, 2.2vw, 28px); box-shadow: var(--shadow-sm); transition: all 0.2s;
+    }
+    .pillar:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+    .pillar-icon {
+      width: 44px; height: 44px; border-radius: 10px; background: #eff6ff; color: var(--accent);
+      display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+    .pillar h3 { font-size: clamp(17px, 1.1vw + 13px, 20px); font-weight: 600; margin-bottom: 8px; }
+    .pillar p { color: var(--muted); font-size: clamp(14px, 0.6vw + 12px, 15px); }
+
+    .latest { padding: clamp(56px, 7vw, 80px) 0; }
+    .callout {
+      background: white; border: 1px solid var(--border); border-left: 4px solid var(--accent);
+      border-radius: var(--radius); padding: clamp(24px, 3vw, 32px); box-shadow: var(--shadow);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .callout-badge { font-size: clamp(11px, 0.7vw, 12px); font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+    .callout h3 { font-size: clamp(19px, 1.8vw + 12px, 24px); font-weight: 650; }
+    .callout p { color: var(--muted); max-width: 80ch; }
+    .link-arrow { font-weight: 500; margin-top: 4px; cursor: pointer; }
+
+    /* PAGES */
+    .page-header { padding: clamp(40px, 6vw, 60px) 0 clamp(28px, 4vw, 40px); border-bottom: 1px solid var(--border); margin-bottom: clamp(28px, 3.5vw, 40px); }
+    .page-header h1 { font-size: clamp(26px, 4vw, 40px); margin-bottom: 8px; }
+    .page-header p { color: var(--muted); font-size: clamp(15px, 1vw + 11px, 17px); max-width: 72ch; }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: clamp(16px, 2vw, 24px); container-type: inline-size; }
+    .tool-card {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: clamp(22px, 2.5vw, 28px); display: flex; flex-direction: column; gap: 14px;
+      transition: all 0.2s;
+    }
+    .tool-card:hover { box-shadow: var(--shadow); transform: translateY(-2px); }
+    .tool-head { display: flex; justify-content: space-between; align-items: start; gap: 16px; flex-wrap: wrap; }
+    .tool-head h3 { font-size: clamp(18px, 1.3vw + 13px, 22px); font-weight: 650; letter-spacing: 0.2px; }
+    .status {
+      font-size: clamp(10px, 0.6vw + 8px, 11px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--success); background: #ecfdf5; border: 1px solid #a7f3d0;
+      padding: 4px 8px; border-radius: 20px; white-space: nowrap;
+    }
+    .tool-card p { color: var(--muted); font-size: clamp(14px, 0.5vw + 12px, 15px); }
+    .tool-card ul { list-style: none; padding-left: 0; display: grid; gap: 6px; margin: 4px 0; }
+    .tool-card ul li { font-size: clamp(13px, 0.5vw + 11px, 14px); color: var(--muted); padding-left: 20px; position: relative; }
+    .tool-card ul li::before { content: '•'; position: absolute; left: 6px; color: var(--accent); }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 8px; }
+    .tags span { font-size: clamp(11px, 0.6vw + 8px, 12px); padding: 4px 8px; background: var(--bg-muted); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); }
+
+    /* RESEARCH */
+    .research-paper {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: clamp(24px, 3.5vw, 40px); box-shadow: var(--shadow-sm); max-width: 900px; width: 100%;
+    }
+    .paper-meta { font-size: clamp(12px, 0.7vw + 9px, 13px); color: var(--muted-light); margin-bottom: 12px; font-weight: 500; }
+    .research-paper h2 { font-size: clamp(22px, 2.8vw, 30px); line-height: 1.3; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.01em; }
+    .research-paper h3 { font-size: clamp(17px, 1.1vw + 12px, 19px); font-weight: 600; margin: 28px 0 12px; padding-top: 12px; border-top: 1px solid var(--bg-muted); }
+    .research-paper h3:first-of-type { border-top: none; padding-top: 0; }
+    .research-paper p { color: var(--text); margin-bottom: 12px; }
+    .research-paper .summary { font-size: clamp(15px, 1vw + 11px, 17px); color: var(--muted); margin-bottom: 20px; }
+    
+    .table-wrap { overflow-x: auto; margin: 16px 0; border: 1px solid var(--border); border-radius: var(--radius-sm); -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; font-size: clamp(13px, 0.7vw + 10px, 14px); min-width: 480px; }
+    th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--bg-alt); font-weight: 600; font-size: clamp(12px, 0.6vw + 9px, 13px); text-transform: uppercase; letter-spacing: 0.3px; color: var(--muted); }
+    tr:last-child td { border-bottom: none; }
+    td .badge-pass { color: #b91c1c; background: #fee2e2; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: clamp(11px, 0.6vw, 12px); white-space: nowrap; }
+    td .badge-fail { color: var(--success); background: #ecfdf5; padding: 2px 8px; border-radius: 12px; font-weight: 600; font-size: clamp(11px, 0.6vw, 12px); white-space: nowrap; }
+
+    .timeline { list-style: none; padding: 0; }
+    .timeline li { padding: 10px 0; border-bottom: 1px dashed var(--border); display: flex; gap: 16px; flex-wrap: wrap; }
+    .timeline li:last-child { border: none; }
+    .timeline strong { min-width: 140px; font-weight: 600; font-size: clamp(13px, 0.6vw + 10px, 14px); }
+
+    .ethics { background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 16px; margin-top: 20px; font-size: clamp(13px, 0.6vw + 10px, 14px); color: #92400e; }
+
+    /* ABOUT */
+    .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 4vw, 48px); align-items: start; }
+    .team { display: grid; gap: 20px; }
+    .person-card {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: clamp(20px, 2vw, 24px); display: flex; gap: 16px;
+    }
+    .avatar {
+      width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+      display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--accent); flex-shrink: 0;
+      font-size: clamp(16px, 1vw + 12px, 18px);
+    }
+    .person-info h4 { font-size: clamp(17px, 1vw + 12px, 18px); font-weight: 600; }
+    .person-info .role { font-size: clamp(13px, 0.6vw + 10px, 14px); color: var(--muted); margin-bottom: 8px; }
+    .person-info p { font-size: clamp(13px, 0.6vw + 10px, 14px); color: var(--muted); }
+    .person-info .handle { font-size: clamp(12px, 0.6vw + 9px, 13px); color: var(--accent); margin-top: 6px; display: inline-block; }
+
+    .mission {
+      background: var(--bg-alt); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: clamp(22px, 2.5vw, 28px); position: sticky; top: calc(var(--nav-h) + 20px);
+    }
+    .mission blockquote { font-size: clamp(18px, 1.4vw + 12px, 20px); font-weight: 600; line-height: 1.4; margin-bottom: 16px; color: var(--text); }
+    .mission p { color: var(--muted); margin-bottom: 16px; font-size: clamp(14px, 0.5vw + 12px, 15px); }
+    .mission-points { display: grid; gap: 12px; margin-top: 20px; }
+    .mission-points div { display: flex; gap: 10px; align-items: start; font-size: clamp(14px, 0.5vw + 12px, 15px); }
+    .mission-points svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+
+    /* CONTACT */
+    .contact-grid { display: grid; grid-template-columns: 2fr 1fr; gap: clamp(24px, 3vw, 32px); }
+    .contact-cards { display: grid; grid-template-columns: repeat(2,1fr); gap: clamp(12px, 1.5vw, 16px); }
+    .contact-card {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: clamp(16px, 1.8vw, 20px); transition: all 0.2s;
+    }
+    .contact-card:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+    .contact-card h4 { font-size: clamp(14px, 0.7vw + 11px, 15px); font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .contact-card a { color: var(--muted); font-size: clamp(13px, 0.6vw + 10px, 14px); word-break: break-all; text-decoration: none; }
+    .contact-card a:hover { color: var(--accent); text-decoration: underline; }
+
+    .info-box {
+      background: white; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: clamp(20px, 2vw, 24px);
+    }
+    .info-box h4 { font-size: clamp(15px, 0.8vw + 11px, 16px); font-weight: 600; margin-bottom: 16px; }
+    .info-list { display: grid; gap: 10px; font-size: clamp(13px, 0.6vw + 10px, 14px); }
+    .info-list div { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--bg-muted); flex-wrap: wrap; }
+    .info-list div:last-child { border: none; }
+    .info-list span:first-child { color: var(--muted); }
+    .info-list span:last-child { font-weight: 500; }
+
+    .disclosure-notice {
+      margin-top: 24px; padding: 16px; background: var(--bg-alt); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); font-size: clamp(13px, 0.6vw + 10px, 14px); color: var(--muted);
+    }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--border); background: var(--bg-alt); margin-top: clamp(60px, 7vw, 80px);
+      padding: clamp(24px, 3vw, 32px) 0; text-align: center; font-size: clamp(13px, 0.6vw + 10px, 14px); color: var(--muted);
+    }
+    footer p:first-child { font-weight: 500; color: var(--text); margin-bottom: 4px; }
+
+    /* ========== RESPONSIVE BREAKPOINTS ========== */
+    
+    /* Large Desktop 1920px+ */
+    @media (min-width: 1920px) {
+      :root { --max: 1320px; --gutter: 48px; }
+      .hero { padding: 120px 0 80px; gap: 96px; }
+      .pillars, .latest { padding: 100px 0; }
+      .grid-3 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+      .grid-2 { grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); }
+    }
+    
+    /* Desktop 1440px */
+    @media (min-width: 1440px) and (max-width: 1919px) {
+      :root { --max: 1200px; --gutter: 32px; }
+    }
+
+    /* Laptop 1024-1280 */
+    @media (max-width: 1280px) {
+      .hero { gap: 48px; }
+    }
+
+    /* Tablet 768-1024px */
+    @media (max-width: 1024px) and (min-width: 768px) {
+      .hero { grid-template-columns: 1fr; gap: 48px; padding: 60px 0 40px; }
+      .grid-3 { grid-template-columns: repeat(2, 1fr); }
+      .about-grid { grid-template-columns: 1fr; }
+      .mission { position: static; }
+      .contact-grid { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(4, 1fr); }
+    }
+    
+    @media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+      .hero { padding: 40px 0 32px; }
+      .page-header { padding: 48px 0 32px; }
+    }
+
+    /* Phone & below 767px */
+    @media (max-width: 767px) {
+      :root { --nav-h: 64px; }
+      .nav-links { display: none; position: absolute; top: var(--nav-h); left: 0; right: 0; background: white; flex-direction: column; padding: 12px var(--gutter); border-bottom: 1px solid var(--border); box-shadow: var(--shadow); gap: 0; align-items: stretch; }
+      .nav-links.open { display: flex; }
+      .nav-links a { padding: 14px 0; width: 100%; border-bottom: 1px solid var(--bg-muted); min-height: 44px; display: flex; align-items: center; }
+      .nav-links a.active::after { display: none; }
+      .nav-links a:last-child { border: none; }
+      .nav-toggle { display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; }
+      .nav-cta .btn { display: none; }
+      
+      .hero { grid-template-columns: 1fr; gap: 32px; }
+      .metrics { grid-template-columns: repeat(2,1fr); }
+      .grid-2, .grid-3, .contact-cards, .about-grid, .contact-grid { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: 1fr; }
+      .stat-grid > div { border-bottom: 1px solid var(--bg-muted); }
+      .stat-grid > div:last-child { border: none; }
+      .mission { position: static; }
+      .cta-row { flex-direction: column; align-items: stretch; }
+      .cta-row .btn { width: 100%; justify-content: center; min-height: 44px; }
+      .timeline li { flex-direction: column; gap: 4px; }
+      .timeline strong { min-width: auto; }
+    }
+
+    /* Small phone 360-479px */
+    @media (max-width: 479px) {
+      :root { --gutter: 16px; }
+      .container, .nav-inner { padding: 0 16px; }
+      .hero { padding: 40px 0 24px; }
+      .page-header { padding: 40px 0 24px; margin-bottom: 24px; }
+      .pillars, .latest { padding: 48px 0; }
+      .tool-card, .pillar, .hero-card, .research-paper, .person-card { padding: 20px; }
+      .metrics { padding: 16px 0 32px; gap: 12px; }
+      .btn { padding: 12px 18px; }
+    }
+
+    /* Watch 320px and below */
+    @media (max-width: 320px) {
+      :root { --nav-h: 48px; --gutter: 12px; }
+      .nav, .nav-inner { height: 48px; }
+      .nav-inner { padding: 0 12px; }
+      .brand { font-size: 0 !important; width: 32px; overflow: hidden; }
+      .brand::before { content: "DW"; font-size: 18px; font-weight: 700; letter-spacing: 0.5px; display: block; }
+      .nav-toggle { width: 44px; height: 44px; padding: 0; }
+      .nav-links { top: 48px; padding: 8px 12px; }
+      .page { padding-top: 48px; }
+      
+      .hero { padding: 24px 0 16px; gap: 20px; }
+      .hero-card { display: none !important; }
+      .eyebrow { margin-bottom: 8px; padding: 3px 8px; }
+      .cta-row { gap: 8px; margin-top: 16px; }
+      .btn { width: 100%; min-height: 44px; font-size: 14px; padding: 10px 14px; border-radius: 8px; }
+      .btn-sm { width: auto; min-height: 36px; padding: 8px 12px; }
+      
+      .metrics { grid-template-columns: repeat(2,1fr); gap: 8px; padding: 12px 0 24px; }
+      .metric { padding: 12px 8px; border-radius: 8px; }
+      .metric strong { font-size: clamp(18px, 6vw, 22px); }
+      .metric span { font-size: 11px; line-height: 1.2; }
+      
+      .section-head { margin-bottom: 20px; padding: 0; }
+      .pillars, .latest, .page-header { padding: 28px 0; }
+      .page-header { margin-bottom: 20px; }
+      .grid-3, .grid-2, .contact-cards { gap: 10px; display: flex; flex-direction: column; }
+      
+      .pillar, .tool-card, .callout, .research-paper, .person-card, .contact-card, .mission, .info-box {
+        padding: 12px; border-radius: 8px; box-shadow: none !important;
+      }
+      .pillar:hover, .tool-card:hover { transform: none; box-shadow: none; }
+      .pillar-icon { width: 32px; height: 32px; margin-bottom: 10px; border-radius: 8px; }
+      .pillar-icon svg { width: 18px; height: 18px; }
+      
+      .callout { border-left-width: 3px; gap: 8px; }
+      .tags, .tool-card ul { display: none; }
+      .status { font-size: 10px; padding: 2px 6px; }
+      .tool-head { gap: 8px; }
+      
+      .research-paper .summary { font-size: 14px; }
+      .research-paper h3 { margin: 20px 0 8px; padding-top: 8px; }
+      .table-wrap { margin: 12px 0; border-radius: 6px; }
+      table { min-width: 280px; font-size: 12px; }
+      th, td { padding: 8px 10px; }
+      
+      .ethics { padding: 10px; font-size: 12px; margin-top: 16px; }
+      .avatar { width: 40px; height: 40px; font-size: 14px; }
+      .person-card { gap: 12px; }
+      .contact-card h4 svg { width: 14px; height: 14px; }
+      
+      footer { margin-top: 32px; padding: 16px 0; }
+      footer p:first-child { display: none; }
+      .disclosure-notice { margin-top: 16px; padding: 12px; }
+    }
+
+    /* Tiny Watch 240px and below */
+    @media (max-width: 240px) {
+      html { font-size: 13px; }
+      body { font-size: 13px; line-height: 1.5; }
+      :root { --gutter: 10px; --nav-h: 48px; }
+      .container, .nav-inner { padding: 0 10px; }
+      
+      .nav { position: fixed; bottom: 0; top: auto; height: 48px; border-top: 1px solid var(--border); border-bottom: none; background: rgba(255,255,255,0.96); }
+      .page { padding-top: 0; padding-bottom: 56px; min-height: 100vh; }
+      .brand, .nav-cta, .nav-toggle { display: none !important; }
+      .nav-inner { justify-content: center; height: 48px; padding: 0 4px; }
+      .nav-links { display: flex !important; position: static; flex-direction: row; justify-content: space-around; width: 100%; padding: 0; box-shadow: none; border: none; background: transparent; gap: 0; }
+      .nav-links a { font-size: 10px; padding: 4px 2px; border: none; flex: 1; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; flex-direction: column; line-height: 1.1; }
+      .nav-links a:nth-child(n+4) { display: none; }
+      .nav-links a.active { color: var(--accent); font-weight: 600; }
+      
+      h1 { font-size: clamp(20px, 8vw, 26px); margin-bottom: 10px; }
+      .page-header h1 { font-size: clamp(20px, 7vw, 24px); }
+      .section-head h2 { font-size: clamp(18px, 6.5vw, 22px); }
+      .lead, .page-header p, .section-head p { font-size: 13px; }
+      .eyebrow, .paper-meta, .callout-badge { font-size: 10px; padding: 2px 6px; }
+      
+      .hero, .page-header { text-align: center; padding: 16px 0; }
+      .cta-row { margin-top: 12px; }
+      .btn { min-height: 40px; padding: 8px 12px; font-size: 13px; border-radius: 6px; }
+      
+      .pillar-icon, .avatar, .contact-card h4 svg, .mission-points svg { display: none !important; }
+      .person-card { flex-direction: column; gap: 6px; padding: 10px; }
+      .mission { padding: 12px; }
+      .mission blockquote { font-size: 15px; margin-bottom: 10px; }
+      .mission p, .mission-points div { font-size: 12px; }
+      
+      .metrics, .pillars, .tags { display: none !important; }
+      .research-paper, .callout, .tool-card { padding: 10px; }
+      .research-paper h2 { font-size: 18px; }
+      .research-paper h3 { font-size: 15px; margin: 14px 0 6px; }
+      .research-paper p, .research-paper .summary { font-size: 12px; margin-bottom: 8px; }
+      
+      .tool-head h3 { font-size: 16px; }
+      .tool-card p { font-size: 12px; }
+      .callout h3 { font-size: 16px; }
+      .callout p { font-size: 12px; }
+      
+      .contact-cards { gap: 8px; }
+      .contact-card { padding: 10px; }
+      .contact-card h4 { font-size: 13px; margin-bottom: 2px; }
+      .contact-card a { font-size: 11px; }
+      
+      .info-box { padding: 10px; }
+      .info-box h4 { font-size: 14px; margin-bottom: 10px; }
+      .info-list { font-size: 11px; gap: 6px; }
+      .info-list div { padding-bottom: 6px; }
+      
+      table { min-width: 220px; font-size: 11px; }
+      th, td { padding: 6px 8px; }
+      th { font-size: 10px; }
+      
+      footer { margin-top: 20px; padding: 12px 0 8px; font-size: 11px; }
+    }
+
+    /* TOUCH OPTIMIZATION */
+    @media (pointer: coarse) {
+      .btn, .nav-toggle, .nav-links a, .tool-card .btn, .contact-card a { min-height: 44px; min-width: 44px; }
+      .nav-links a { padding: 12px 0; }
+      .btn { padding: 12px 20px; }
+      .tool-card:hover, .pillar:hover, .btn-primary:hover { transform: none; }
+      .btn:active, .nav-links a:active, .contact-card:active { opacity: 0.7; transform: scale(0.98); }
+      .cta-row { gap: 16px; }
+      .nav-toggle:active { background: var(--bg-muted); }
+    }
+
+    /* Reduce motion */
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="nav-inner">
+      <div class="brand" onclick="go('home')">DESTAWELL</div>
+      <nav class="nav-links" id="navLinks">
+        <a data-page="home" class="active" onclick="go('home')">Home</a>
+        <a data-page="tools" onclick="go('tools')">Tools</a>
+        <a data-page="research" onclick="go('research')">Research</a>
+        <a data-page="about" onclick="go('about')">About</a>
+        <a data-page="contact" onclick="go('contact')">Contact</a>
+      </nav>
+      <div class="nav-cta">
+        <button class="nav-toggle" aria-label="Toggle menu" onclick="toggleNav()">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <a class="btn btn-primary" onclick="go('contact')">Get in Touch</a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- HOME -->
+    <section id="home" class="page active">
+      <div class="container hero">
+        <div class="hero-text">
+          <span class="eyebrow">Mobile Security Research Lab</span>
+          <h1>Mobile Security Research</h1>
+          <p class="lead">Closing the gap between desktop security tooling and mobile environments. Built for Termux, Kali NetHunter, and ARM64 — no root required.</p>
+          <div class="cta-row">
+            <button class="btn btn-primary" onclick="go('tools')">Explore Tools</button>
+            <button class="btn btn-outline" onclick="go('research')">View Research</button>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="stat-grid">
+            <div><span>Tools Released</span><strong>4</strong></div>
+            <div><span>Target Platform</span><strong>Android ARM64</strong></div>
+            <div><span>Root Required</span><strong>None</strong></div>
+            <div><span>CVE Disclosures</span><strong>1 Filed</strong></div>
+            <div><span>License</span><strong>Open Source</strong></div>
+            <div><span>Focus</span><strong>Mobile-First</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="container">
+        <div class="metrics">
+          <div class="metric"><strong>4+</strong><span>Open-Source Tools</span></div>
+          <div class="metric"><strong>ARM64</strong><span>Native Target</span></div>
+          <div class="metric"><strong>$0</strong><span>Always Free</span></div>
+          <div class="metric"><strong>1×</strong><span>CVE AI Finding</span></div>
+        </div>
+      </div>
+
+      <section class="pillars">
+        <div class="container">
+          <div class="section-head">
+            <h2>Purpose-Built for Mobile</h2>
+            <p>We build practical infrastructure where traditional security tooling fails — on phones, tablets, and ARM devices.</p>
+          </div>
+          <div class="grid-3">
+            <div class="pillar">
+              <div class="pillar-icon">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+              </div>
+              <h3>Mobile Pentesting Infrastructure</h3>
+              <p>Purpose-built for Termux and Kali NetHunter on ARM64 Android devices. Full Linux userlands, network scanners, and repair tooling that works without root access.</p>
+            </div>
+            <div class="pillar">
+              <div class="pillar-icon">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect x="4" y="12" width="8" height="8" rx="2"/><rect x="12" y="4" width="6" height="6" rx="1"/></svg>
+              </div>
+              <h3>LLM Safety Research</h3>
+              <p>Testing frontier model guardrails against real-world exploit generation tasks. Documenting bypasses, disclosure responses, and alignment gaps in AI code assistants.</p>
+            </div>
+            <div class="pillar">
+              <div class="pillar-icon">
+                <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 18l2-2-4-4-2 2 4 4z"/><path d="M4 12v4h4l8-8-4-4-8 8z"/></svg>
+              </div>
+              <h3>Open-Source Tooling</h3>
+              <p>Every tool is free, auditable, and maintained on GitHub. No paywalls, no telemetry. Built by researchers, for researchers in resource-constrained environments.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="latest">
+        <div class="container">
+          <div class="callout">
+            <div class="callout-badge">Latest Research · RES-2025-001</div>
+            <h3>Gemini 2.5 Pro — Safety Alignment Bypass</h3>
+            <p>We demonstrated that Google’s Gemini 2.5 Pro generated a fully functional Linux kernel exploit for <code>CVE-2023-32233</code> (nf_tables use-after-free) from a single prompt, while GPT-4o, Claude 3.5, and Llama 3 correctly refused. The issue was filed via Google IssueTracker and marked as out-of-scope.</p>
+            <a class="link-arrow" onclick="go('research')">Read full disclosure →</a>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <!-- TOOLS -->
+    <section id="tools" class="page">
+      <div class="container page-header">
+        <h1>Open-Source Tools</h1>
+        <p>Production-ready utilities for mobile security work. Designed for Termux and ARM64, tested on real devices.</p>
+      </div>
+      <div class="container grid-2">
+        <article class="tool-card">
+          <div class="tool-head">
+            <h3>TERMUX-FIXER</h3>
+            <span class="status">ACTIVE</span>
+          </div>
+          <p>Auto-repair for broken Termux environments.</p>
+          <ul>
+            <li>Repairs broken $PREFIX and package database</li>
+            <li>Restores default repositories and GPG keys</li>
+            <li>Fixes common permission and symlink issues</li>
+            <li>Non-destructive, idempotent recovery scripts</li>
+          </ul>
+          <div class="tags"><span>bash</span><span>termux</span><span>repair</span><span>android</span></div>
+          <a href="https://github.com/Destawell" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View on GitHub</a>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-head">
+            <h3>KALI-TERMUX-PRO</h3>
+            <span class="status">ACTIVE</span>
+          </div>
+          <p>Full Kali Linux userland inside Termux — no root.</p>
+          <ul>
+            <li>Complete Kali toolset via proot-distro</li>
+            <li>Persistent home, apt, and systemd-shim</li>
+            <li>VNC and GUI support for mobile</li>
+            <li>Optimized for ARM64 and low RAM</li>
+          </ul>
+          <div class="tags"><span>kali</span><span>nethunter</span><span>proot</span><span>arm64</span></div>
+          <a href="https://github.com/Destawell" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View on GitHub</a>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-head">
+            <h3>WRAITH-SCANNER</h3>
+            <span class="status">ACTIVE</span>
+          </div>
+          <p>Lightweight network discovery for mobile.</p>
+          <ul>
+            <li>Fast ARP and TCP SYN host discovery</li>
+            <li>Service fingerprinting with minimal battery</li>
+            <li>JSON/CSV export for reporting</li>
+            <li>Built for Termux, no root required</li>
+          </ul>
+          <div class="tags"><span>scanner</span><span>network</span><span>recon</span><span>mobile</span></div>
+          <a href="https://github.com/Destawell" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View on GitHub</a>
+        </article>
+
+        <article class="tool-card">
+          <div class="tool-head">
+            <h3>KALI_CRITIC</h3>
+            <span class="status">ACTIVE</span>
+          </div>
+          <p>Real-time output analysis for Kali Linux.</p>
+          <ul>
+            <li>Parses nmap, gobuster, sqlmap output live</li>
+            <li>Suggests next steps and flags misconfigs</li>
+            <li>Local-first analysis, optional LLM assist</li>
+            <li>Designed for mobile terminal workflows</li>
+          </ul>
+          <div class="tags"><span>analysis</span><span>automation</span><span>kali</span><span>cli</span></div>
+          <a href="https://github.com/Destawell" target="_blank" rel="noopener" class="btn btn-outline btn-sm">View on GitHub</a>
+        </article>
+      </div>
+    </section>
+
+    <!-- RESEARCH -->
+    <section id="research" class="page">
+      <div class="container page-header">
+        <h1>Research & Disclosures</h1>
+        <p>Independent red teaming focused on AI safety and mobile attack surface.</p>
+      </div>
+      <div class="container">
+        <div class="research-paper">
+          <div class="paper-meta">RES-2025-001 · AI Safety · Published 2025</div>
+          <h2>Gemini 2.5 Pro — Safety Alignment Bypass via Kernel Exploit Generation</h2>
+          <p class="summary">A controlled red-team exercise demonstrating inconsistent safety guardrails across frontier LLMs when prompted for exploit development against a known Linux kernel vulnerability.</p>
+          
+          <h3>Finding Summary</h3>
+          <p>Google Gemini 2.5 Pro generated a complete, functional proof-of-concept exploit for <code>CVE-2023-32233</code> — a high-severity use-after-free in the Linux kernel nf_tables subsystem — in response to a direct technical prompt. The output included kernel memory manipulation primitives, namespace setup, and trigger logic consistent with public writeups.</p>
+          <p>Under identical prompting conditions, OpenAI GPT-4o, Anthropic Claude 3.5 Sonnet, and Meta Llama 3 all refused to comply, citing safety policies against facilitating cyberattacks.</p>
+
+          <h3>Model Comparison Matrix</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Model</th><th>Prompt Type</th><th>Response</th><th>Output</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Gemini 2.5 Pro</strong></td><td>Direct exploit request</td><td><span class="badge-pass">Generated exploit</span></td><td>Full C code for CVE-2023-32233</td></tr>
+                <tr><td>ChatGPT-4o</td><td>Direct exploit request</td><td><span class="badge-fail">Refused</span></td><td>Safety policy block</td></tr>
+                <tr><td>Claude 3.5 Sonnet</td><td>Direct exploit request</td><td><span class="badge-fail">Refused</span></td><td>Safety policy block</td></tr>
+                <tr><td>Llama 3 70B</td><td>Direct exploit request</td><td><span class="badge-fail">Refused</span></td><td>Safety policy block</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Methodology</h3>
+          <p>Testing was conducted in an isolated lab with no internet-connected targets. Prompts requested a "proof-of-concept for educational research" for CVE-2023-32233. No jailbreaks, obfuscation, or multi-turn manipulation were used. Outputs were validated against public exploit techniques but never executed against production systems.</p>
+
+          <h3>Disclosure Timeline</h3>
+          <ul class="timeline">
+            <li><strong>Filed:</strong> <span>Google IssueTracker #889286 (AI Safety)</span></li>
+            <li><strong>Vendor Response:</strong> <span>Marked as "Won't Fix (Intended Behavior) – Out of Scope"</span></li>
+            <li><strong>Public Action:</strong> <span>Full technical documentation and reproduction steps published for transparency</span></li>
+            <li><strong>Repository:</strong> <span><a href="https://github.com/Destawell/gemini-2.5-pro-nf-tables-red-teaming" target="_blank" rel="noopener">github.com/Destawell/gemini-2.5-pro-nf-tables-red-teaming</a></span></li>
+          </ul>
+
+          <div class="ethics">
+            <strong>Ethics Statement:</strong> All research adheres to responsible disclosure principles. No weaponized code was distributed. Findings are published to improve model safety alignment and inform defensive work. Testing was limited to local VMs in a controlled environment.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section id="about" class="page">
+      <div class="container page-header">
+        <h1>About Destawell</h1>
+        <p>Independent research lab founded in 2025, building security tooling for the next billion mobile researchers.</p>
+      </div>
+      <div class="container about-grid">
+        <div class="team">
+          <div class="person-card">
+            <div class="avatar">NR</div>
+            <div class="person-info">
+              <h4>Niranj R. Mahaswar</h4>
+              <div class="role">Founder · Lead Security Researcher</div>
+              <p>Mobile pentesting, ARM64 tooling, and LLM red teaming. Focused on making advanced security capabilities accessible on Android without root. Cisco Certified: Ethical Hacker, CyberOps, Networking.</p>
+              <a class="handle" href="https://github.com/Destawell" target="_blank" rel="noopener">@Niranj-coder</a>
+            </div>
+          </div>
+          <div class="person-card">
+            <div class="avatar" style="background:linear-gradient(135deg,#fce7f3,#fbcfe8); color:#be185d;">S</div>
+            <div class="person-info">
+              <h4>Shifana</h4>
+              <div class="role">Co-Founder · Brand & Community</div>
+              <p>Leads documentation, community programs, and research publishing. Ensures tools are accessible, well-documented, and built with researchers in India and globally in mind.</p>
+            </div>
+          </div>
+        <div class="mission">
+          <blockquote>"The gap between desktop security tooling and mobile environments is massive."</blockquote>
+          <p>Destawell was created to close it. Most security labs assume x86 desktops, unlimited power, and root access. We design for Termux on a phone in a hostel room — where the next generation of researchers actually learn.</p>
+          <div class="mission-points">
+            <div><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5-5 5 5"/></svg><span><strong>Mobile-first:</strong> Everything runs on ARM64 Android, no root required.</span></div>
+            <div><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5-5 5 5"/></svg><span><strong>Open by default:</strong> MIT-licensed, documented, reproducible.</span></div>
+            <div><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l5-5 5 5"/></svg><span><strong>Safety focused:</strong> We publish red-team findings to improve alignment, not to harm.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact" class="page">
+      <div class="container page-header">
+        <h1>Contact</h1>
+        <p>For collaborations, disclosures, or tool support.</p>
+      </div>
+      <div class="container contact-grid">
+        <div>
+          <div class="contact-cards">
+            <div class="contact-card">
+              <h4><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H4z"/><path d="M4 7l8 5 8-5"/></svg> Email</h4>
+              <a href="mailto:research@destawell.io">research@destawell.io</a>
+            </div>
+            <div class="contact-card">
+              <h4><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 0 0 0 5 4.77a5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg> GitHub</h4>
+              <a href="https://github.com/Destawell" target="_blank" rel="noopener">github.com/Destawell</a>
+            </div>
+            <div class="contact-card">
+              <h4><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="12" height="12" rx="2"/></svg> DEV</h4>
+              <a href="https://dev.to/destawell" target="_blank" rel="noopener">dev.to/destawell</a>
+            </div>
+            <div class="contact-card">
+              <h4><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h10l4 4-4 4H4z"/></svg> Hashnode</h4>
+              <a href="https://destawell.hashnode.dev" target="_blank" rel="noopener">destawell.hashnode.dev</a>
+            </div>
+            <div class="contact-card">
+              <h4><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="14" height="14" rx="4"/><circle cx="9" cy="9" r="3"/><path d="M14.5 4.5h.01"/></svg> Instagram</h4>
+              <a href="https://instagram.com/destawell_off" target="_blank" rel="noopener">@destawell_off</a>
+            </div>
+          </div>
+          <div class="disclosure-notice">
+            <strong>Security Disclosures:</strong> If you have found a vulnerability in our tools, please email us directly. We operate a 90-day coordinated disclosure policy and credit researchers in our advisories.
+          </div>
+        </div>
+        <div class="info-box">
+          <h4>Organization Details</h4>
+          <div class="info-list">
+            <div><span>Organisation</span><span>Destawell Research</span></div>
+            <div><span>Location</span><span>India</span></div>
+            <div><span>Founded</span><span>2025</span></div>
+            <div><span>Type</span><span>Independent Research Brand</span></div>
+            <div><span>Status</span><span>Operational</span></div>
+            <div><span>Response Time</span><span>2-4 business days</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <p>DESTAWELL — Mobile-First Security Research · AI Red Teaming · Open-Source Tooling</p>
+      <p class="copyright">© 2025–2026 Destawell. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    function go(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+      document.querySelectorAll('.nav-links a').forEach(a => a.classList.toggle('active', a.dataset.page === id));
+      document.getElementById('navLinks').classList.remove('open');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      history.replaceState(null, '', '#' + id);
+    }
+    function toggleNav() {
+      document.getElementById('navLinks').classList.toggle('open');
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+      const hash = location.hash.slice(1);
+      if (hash && document.getElementById(hash)) go(hash);
+    });
+    // Close mobile nav on resize
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 767) {
+        document.getElementById('navLinks').classList.remove('open');
+      }
+    });
+  </script>
+<script>(function(){document.addEventListener("click",function(e){var a=e.target.closest("[data-product-id]");if(!a)return;e.preventDefault();var pid=a.getAttribute("data-product-id");if(pid)parent.postMessage({type:"ecto-artifact-link-click",productId:pid},"*")})})();</script>
+</body>
+  </html>
